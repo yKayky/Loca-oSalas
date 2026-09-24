@@ -1,144 +1,215 @@
 'use client';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { FormEvent, useState } from 'react';
 import { ReservaStatusBadge } from '@/components/reservas/reserva-status-badge';
 import { useReservas } from '@/components/reservas/reserva-provider';
 import { StatusReserva } from '@/types/reserva';
 
-const proximaAcao: Partial<Record<StatusReserva, { texto: string; status: StatusReserva }>> = { 
-  PENDENTE: { texto: 'Fazer check-in', status: 'EM_ANDAMENTO' }, 
-  CONFIRMADA: { texto: 'Fazer check-in', status: 'EM_ANDAMENTO' }, 
-  EM_ANDAMENTO: { texto: 'Fazer check-out (Finalizar)', status: 'FINALIZADA' } 
+const proximaAcao: Partial<Record<StatusReserva, { texto: string; status: StatusReserva; cor: string }>> = {
+  PENDENTE: { texto: 'Fazer Check-in', status: 'EM_ANDAMENTO', cor: 'bg-indigo-600 hover:bg-indigo-500 text-white' },
+  CONFIRMADA: { texto: 'Fazer Check-in', status: 'EM_ANDAMENTO', cor: 'bg-indigo-600 hover:bg-indigo-500 text-white' },
+  EM_ANDAMENTO: { texto: 'Fazer Check-out', status: 'FINALIZADA', cor: 'bg-emerald-600 hover:bg-emerald-500 text-white' },
 };
 
-export default function DetalheReserva() { 
-  const { id } = useParams<{ id: string }>(); 
-  const router = useRouter(); 
-  const { reservas, usuarios, espacos, loading, alterarStatus, editarReserva } = useReservas(); 
-  const [erro, setErro] = useState(''); 
-  const [salvando, setSalvando] = useState(false); 
-  const [editando, setEditando] = useState(false); 
-  
-  const reserva = reservas.find((item) => item.id === Number(id)); 
-  
-  if (loading) return <p>Carregando reservas...</p>; 
-  if (!reserva) return <div><h1 className="text-3xl font-bold">Reserva não encontrada</h1><Link href="/reservas" className="mt-4 inline-block text-teal-700">Voltar para reservas</Link></div>; 
-  
-  const usuario = usuarios.find((item) => item.id === reserva.usuarioId); 
-  const espaco = espacos.find((item) => item.id === reserva.espacoId); 
-  const acao = proximaAcao[reserva.status]; 
-  
-  async function mudarStatus(status: StatusReserva) { 
-    setErro(''); 
-    setSalvando(true); 
-    try { 
-      await alterarStatus(reserva!.id, status); 
-      router.refresh(); 
-    } catch (erro) { 
-      setErro(erro instanceof Error ? erro.message : 'Não foi possível atualizar a reserva.'); 
-    } finally { 
-      setSalvando(false); 
-    } 
-  } 
-  
-  async function editar(event: FormEvent<HTMLFormElement>) { 
-    event.preventDefault(); 
-    const dados = new FormData(event.currentTarget); 
-    setSalvando(true); 
-    try { 
-      await editarReserva(reserva!.id, { 
-        usuarioId: Number(dados.get('usuarioId')), 
-        espacoId: Number(dados.get('espacoId')), 
-        data: String(dados.get('data')), 
-        horarioInicio: String(dados.get('horarioInicio')),
-        horarioFim: String(dados.get('horarioFim')) 
-      }); 
-      setEditando(false); 
-    } catch (erro) { 
-      setErro(erro instanceof Error ? erro.message : 'Não foi possível editar a reserva.'); 
-    } finally { 
-      setSalvando(false); 
-    } 
-  } 
-  
-  async function cancelar() { 
-    if (window.confirm('Tem certeza que deseja cancelar esta reserva?')) await mudarStatus('CANCELADA'); 
-  } 
-  
+function InfoItem({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <>
-      <Link href="/reservas" className="text-sm font-semibold text-teal-700">← Voltar para reservas</Link>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Reserva #{reserva.id}</h1>
+    <div className="space-y-1">
+      <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">{label}</dt>
+      <dd className="text-sm font-medium text-slate-200">{value}</dd>
+    </div>
+  );
+}
+
+export default function DetalheReserva() {
+  const { id } = useParams<{ id: string }>();
+  const { reservas, usuarios, espacos, loading, alterarStatus, editarReserva } = useReservas();
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const [editando, setEditando] = useState(false);
+
+  const reserva = reservas.find((item) => item.id === Number(id));
+
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-400 animate-pulse">Carregando...</div>
+      </div>
+    );
+
+  if (!reserva)
+    return (
+      <div className="text-center py-20">
+        <p className="text-slate-400 mb-4">Reserva não encontrada.</p>
+        <Link href="/reservas" className="text-indigo-400 hover:text-indigo-300">← Voltar para reservas</Link>
+      </div>
+    );
+
+  const usuario = usuarios.find((item) => item.id === reserva.usuarioId);
+  const espaco = espacos.find((item) => item.id === reserva.espacoId);
+  const acao = proximaAcao[reserva.status];
+  const agora = new Date();
+  const fimReserva = new Date(`${reserva.data}T${reserva.horarioFim}:00`);
+  const atrasada = reserva.status === 'EM_ANDAMENTO' && agora > fimReserva;
+
+  async function mudarStatus(status: StatusReserva) {
+    setErro('');
+    setSalvando(true);
+    try {
+      await alterarStatus(reserva!.id, status);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível atualizar a reserva.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function editar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const dados = new FormData(event.currentTarget);
+    setSalvando(true);
+    setErro('');
+    try {
+      await editarReserva(reserva!.id, {
+        usuarioId: Number(dados.get('usuarioId')),
+        espacoId: Number(dados.get('espacoId')),
+        data: String(dados.get('data')),
+        horarioInicio: String(dados.get('horarioInicio')),
+        horarioFim: String(dados.get('horarioFim')),
+      });
+      setEditando(false);
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível editar a reserva.');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function cancelar() {
+    if (window.confirm('Confirmar cancelamento desta reserva?')) await mudarStatus('CANCELADA');
+  }
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      {/* Voltar */}
+      <Link href="/reservas" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors">
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Voltar para reservas
+      </Link>
+
+      {/* Cabeçalho */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-mono text-slate-500 mb-1">Reserva #{reserva.id}</p>
+          <h1 className="text-2xl font-bold text-white">{usuario?.nome ?? 'Usuário desconhecido'}</h1>
+          <p className="text-slate-400 mt-0.5">{espaco?.nome ?? 'Espaço desconhecido'}</p>
+        </div>
         <ReservaStatusBadge status={reserva.status} />
       </div>
-      {erro && <p className="mt-4 rounded bg-rose-50 p-3 text-rose-700">{erro}</p>}
-      <section className="mt-6 max-w-2xl rounded-xl bg-white p-6 shadow-sm">
-        <dl className="grid gap-5 sm:grid-cols-2">
-          <div><dt className="text-sm text-slate-500">Usuário</dt><dd className="font-semibold">{usuario?.nome ?? 'Usuário não encontrado'}</dd></div>
-          <div><dt className="text-sm text-slate-500">Espaço</dt><dd className="font-semibold">{espaco?.nome ?? 'Espaço não encontrado'}</dd></div>
-          <div><dt className="text-sm text-slate-500">Valor / hora</dt><dd>R$ {espaco?.valorPorHora.toFixed(2) ?? '?'}</dd></div>
-          <div><dt className="text-sm text-slate-500">Data e horário</dt><dd>{reserva.data} · {reserva.horarioInicio} até {reserva.horarioFim}</dd></div>
-          
-          {reserva.checkInReal && <div><dt className="text-sm text-slate-500">Check-in Real</dt><dd>{new Date(reserva.checkInReal).toLocaleString('pt-BR')}</dd></div>}
-          {reserva.checkOutReal && <div><dt className="text-sm text-slate-500">Check-out Real</dt><dd>{new Date(reserva.checkOutReal).toLocaleString('pt-BR')}</dd></div>}
-          
-          {reserva.tempoExcedenteMinutos !== undefined && reserva.tempoExcedenteMinutos > 0 && (
-            <div className="col-span-full rounded bg-rose-50 p-4">
-              <dt className="text-sm font-medium text-rose-800">Tempo Excedente</dt>
-              <dd className="text-rose-900 font-bold">{reserva.tempoExcedenteMinutos} minutos (Valor Adicional: R$ {reserva.valorExcedente?.toFixed(2)})</dd>
-            </div>
-          )}
 
-          <div><dt className="text-sm text-slate-500">Criada em</dt><dd>{new Date(reserva.createdAt).toLocaleString('pt-BR')}</dd></div>
-          <div><dt className="text-sm text-slate-500">Atualizada em</dt><dd>{new Date(reserva.updatedAt).toLocaleString('pt-BR')}</dd></div>
+      {atrasada && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 px-4 py-3 flex items-center gap-2 text-rose-400 text-sm font-medium">
+          ⚠️ O horário da reserva já passou. Realize o check-out urgente para liberar o espaço.
+        </div>
+      )}
+
+      {erro && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 px-4 py-3 text-rose-400 text-sm">
+          {erro}
+        </div>
+      )}
+
+      {/* Card de informações */}
+      <div className="rounded-2xl bg-slate-800/50 border border-slate-700/50 p-6 space-y-6">
+        <dl className="grid grid-cols-2 gap-5">
+          <InfoItem label="Usuário" value={usuario?.nome ?? '—'} />
+          <InfoItem label="Espaço" value={espaco?.nome ?? '—'} />
+          <InfoItem label="Data" value={reserva.data} />
+          <InfoItem label="Período" value={`${reserva.horarioInicio} até ${reserva.horarioFim}`} />
+          <InfoItem label="Valor / hora" value={espaco ? `R$ ${espaco.valorPorHora.toFixed(2)}` : '—'} />
+          {reserva.checkInReal && (
+            <InfoItem label="Check-in real" value={new Date(reserva.checkInReal).toLocaleString('pt-BR')} />
+          )}
+          {reserva.checkOutReal && (
+            <InfoItem label="Check-out real" value={new Date(reserva.checkOutReal).toLocaleString('pt-BR')} />
+          )}
+          <InfoItem label="Criada em" value={new Date(reserva.createdAt).toLocaleString('pt-BR')} />
         </dl>
-        
-        <div className="mt-7 flex flex-wrap gap-3">
+
+
+
+
+        {/* Botões de ação */}
+        <div className="flex flex-wrap gap-3 pt-2 border-t border-slate-700/50">
           {acao && (
-            <button disabled={salvando} onClick={() => mudarStatus(acao.status)} className="rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white">
+            <button
+              disabled={salvando}
+              onClick={() => mudarStatus(acao.status)}
+              className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 shadow-lg ${acao.cor}`}
+            >
               {salvando ? 'Salvando...' : acao.texto}
             </button>
           )}
           {(reserva.status === 'PENDENTE' || reserva.status === 'CONFIRMADA') && (
             <>
-              <button disabled={salvando} onClick={() => setEditando(!editando)} className="rounded-lg border border-teal-300 px-4 py-2 font-semibold text-teal-700">Editar reserva</button>
-              <button disabled={salvando} onClick={cancelar} className="rounded-lg border border-rose-300 px-4 py-2 font-semibold text-rose-700">{salvando ? 'Cancelando...' : 'Cancelar reserva'}</button>
+              <button
+                disabled={salvando}
+                onClick={() => setEditando(!editando)}
+                className="rounded-xl border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
+              >
+                {editando ? 'Cancelar edição' : 'Editar'}
+              </button>
+              <button
+                disabled={salvando}
+                onClick={cancelar}
+                className="rounded-xl border border-rose-500/30 px-4 py-2.5 text-sm font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors"
+              >
+                Cancelar reserva
+              </button>
             </>
           )}
           {!acao && reserva.status !== 'PENDENTE' && reserva.status !== 'CONFIRMADA' && (
-            <p className="text-slate-500">Nenhuma ação de fluxo disponível.</p>
+            <p className="text-sm text-slate-500">Nenhuma ação disponível para este status.</p>
           )}
         </div>
-        
+
+        {/* Formulário de edição */}
         {editando && (
-          <form onSubmit={editar} className="mt-6 grid gap-3 border-t pt-5 sm:grid-cols-2">
-            <label>Usuário
-              <select name="usuarioId" defaultValue={reserva.usuarioId} className="mt-1 w-full rounded border p-2">
-                {usuarios.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}
+          <form onSubmit={editar} className="grid gap-4 sm:grid-cols-2 border-t border-slate-700 pt-5">
+            <label className="block">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Usuário</span>
+              <select name="usuarioId" defaultValue={reserva.usuarioId} className="mt-1.5 w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 outline-none">
+                {usuarios.map((u) => <option key={u.id} value={u.id}>{u.nome}</option>)}
               </select>
             </label>
-            <label>Espaço
-              <select name="espacoId" defaultValue={reserva.espacoId} className="mt-1 w-full rounded border p-2">
-                {espacos.map((item) => <option key={item.id} value={item.id}>{item.nome} — {item.descricao}</option>)}
+            <label className="block">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Espaço</span>
+              <select name="espacoId" defaultValue={reserva.espacoId} className="mt-1.5 w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 outline-none">
+                {espacos.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
               </select>
             </label>
-            <label className="sm:col-span-2">Data
-              <input name="data" type="date" defaultValue={reserva.data} className="mt-1 w-full rounded border p-2" />
+            <label className="block sm:col-span-2">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Data</span>
+              <input name="data" type="date" defaultValue={reserva.data} className="mt-1.5 w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 outline-none" />
             </label>
-            <label>Horário Início
-              <input name="horarioInicio" type="time" defaultValue={reserva.horarioInicio} className="mt-1 w-full rounded border p-2" />
+            <label className="block">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Início</span>
+              <input name="horarioInicio" type="time" defaultValue={reserva.horarioInicio} className="mt-1.5 w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 outline-none" />
             </label>
-            <label>Horário Fim
-              <input name="horarioFim" type="time" defaultValue={reserva.horarioFim} className="mt-1 w-full rounded border p-2" />
+            <label className="block">
+              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Fim</span>
+              <input name="horarioFim" type="time" defaultValue={reserva.horarioFim} className="mt-1.5 w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:border-indigo-500 outline-none" />
             </label>
-            <button disabled={salvando} className="w-fit rounded-lg bg-teal-700 px-4 py-2 font-semibold text-white">
-              {salvando ? 'Salvando...' : 'Salvar alterações'}
-            </button>
+            <div className="sm:col-span-2">
+              <button disabled={salvando} className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors disabled:opacity-50">
+                {salvando ? 'Salvando...' : 'Salvar alterações'}
+              </button>
+            </div>
           </form>
         )}
-      </section>
-    </>
-  ); 
+      </div>
+    </div>
+  );
 }

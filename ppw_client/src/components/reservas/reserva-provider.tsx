@@ -1,7 +1,7 @@
 'use client';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { buscarReservas, buscarEspacos, buscarUsuarios, criarReserva as criarNaApi, atualizarReserva as atualizarNaApi, sincronizarReservas, criarUsuario, criarEspaco } from '@/lib/api';
-import { carregarReservas, salvarReservas } from '@/lib/storage';
+
 import { Reserva, DadosReserva, Espaco, Usuario, StatusReserva } from '@/types/reserva';
 
 type Contexto = { 
@@ -26,24 +26,19 @@ export function ReservaProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true); 
   const [error, setError] = useState('');
 
-  function atualizarLista(novas: Reserva[]) { 
-    setReservas(novas); 
-    salvarReservas(novas); 
-  }
+
 
   useEffect(() => { 
     async function iniciar() { 
       try { 
-        const [catalogoUsuarios, catalogoEspacos] = await Promise.all([buscarUsuarios(), buscarEspacos()]); 
+        const [catalogoUsuarios, catalogoEspacos, listaReservas] = await Promise.all([
+          buscarUsuarios(), 
+          buscarEspacos(),
+          buscarReservas()
+        ]); 
         setUsuarios(catalogoUsuarios); 
         setEspacos(catalogoEspacos); 
-        const locais = carregarReservas(); 
-        if (locais) { 
-          atualizarLista(locais); 
-          await sincronizarReservas(locais); 
-        } else { 
-          atualizarLista(await buscarReservas()); 
-        } 
+        setReservas(listaReservas); 
       } catch (erro) { 
         setError(erro instanceof Error ? erro.message : 'Não foi possível carregar os dados.'); 
       } finally { 
@@ -55,19 +50,19 @@ export function ReservaProvider({ children }: { children: ReactNode }) {
 
   async function criarReserva(dados: DadosReserva) { 
     const reserva = await criarNaApi(dados); 
-    atualizarLista([...reservas, reserva]); 
+    setReservas((prev) => [...prev, reserva]); 
     return reserva; 
   }
 
   async function editarReserva(id: number, dados: Partial<Reserva>) { 
     const reserva = await atualizarNaApi(id, dados); 
-    atualizarLista(reservas.map((item) => item.id === id ? reserva : item)); 
+    setReservas((prev) => prev.map((item) => item.id === id ? reserva : item)); 
     return reserva; 
   }
 
   async function alterarStatus(id: number, status: StatusReserva) { 
     const reserva = await atualizarNaApi(id, { status }); 
-    atualizarLista(reservas.map((item) => item.id === id ? reserva : item)); 
+    setReservas((prev) => prev.map((item) => item.id === id ? reserva : item)); 
     return reserva; 
   }
 
