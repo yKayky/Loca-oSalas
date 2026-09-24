@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
-import { ConsultasModule } from '../consultas/consultas.module';
-import { PacientesModule } from '../pacientes/pacientes.module';
-import { MedicosModule } from '../medicos/medicos.module';
+import { ReservasModule } from '../reservas/reservas.module';
+import { UsuariosModule } from '../usuarios/usuarios.module';
+import { EspacosModule } from '../espacos/espacos.module';
 
-@Module({ imports: [ConsultasModule, PacientesModule, MedicosModule], controllers: [AppController] })
+@Module({ imports: [ReservasModule, UsuariosModule, EspacosModule], controllers: [AppController] })
 export class AppModule {}

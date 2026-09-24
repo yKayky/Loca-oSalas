@@ -1,6 +1,6 @@
-# Agenda Clínica
+# Agenda Coworking
 
-MVP acadêmico para entender o fluxo de uma consulta: **agendamento → confirmação pelo paciente → check-in → realização**, com cancelamento quando necessário. O foco é demonstrar Next.js, React, NestJS, REST e `localStorage` de forma simples e organizada.
+MVP acadêmico para entender o fluxo de uma reserva: **agendamento → confirmação pelo usuario → check-in → realização**, com cancelamento quando necessário. O foco é demonstrar Next.js, React, NestJS, REST e `localStorage` de forma simples e organizada.
 
 ## Tecnologias e estrutura
 
@@ -28,13 +28,13 @@ Abra `http://localhost:3000`. A rota `GET http://localhost:8000` confirma que a 
 
 ## Persistência e sincronização
 
-Não existe banco de dados neste projeto. O `localStorage` do navegador é a persistência permanente das consultas, na chave `agenda-clinica-consultas`. O NestJS mantém apenas uma lista temporária em memória.
+Não existe banco de dados neste projeto. O `localStorage` do navegador é a persistência permanente das reservas, na chave `agenda-clinica-reservas`. O NestJS mantém apenas uma lista temporária em memória.
 
-No primeiro acesso, o frontend chama `GET /consultas` e salva os dados iniciais. Nos acessos seguintes, carrega os dados locais e envia a lista para `PUT /consultas/sincronizar`. Assim, se o backend reiniciar, ele recupera a lista atual antes de uma edição ou mudança de status.
+No primeiro acesso, o frontend chama `GET /reservas` e salva os dados iniciais. Nos acessos seguintes, carrega os dados locais e envia a lista para `PUT /reservas/sincronizar`. Assim, se o backend reiniciar, ele recupera a lista atual antes de uma edição ou mudança de status.
 
 ```text
 Frontend → api.ts → NestJS → Service → resposta → React → storage.ts → localStorage
-localStorage → PUT /consultas/sincronizar → memória do NestJS
+localStorage → PUT /reservas/sincronizar → memória do NestJS
 ```
 
 ## Fluxo e regras
@@ -44,9 +44,9 @@ AGENDADA → CONFIRMADA → CHECK_IN → REALIZADA
 AGENDADA ou CONFIRMADA → CANCELADA
 ```
 
-- Consultas não são excluídas: cancelar altera o status para `CANCELADA`.
-- O mesmo médico não pode ter duas consultas na mesma data e horário; a API responde `409 Conflict`.
-- Consultas canceladas não bloqueiam um horário.
+- Reservas não são excluídas: cancelar altera o status para `CANCELADA`.
+- O mesmo espaço não pode ter duas reservas na mesma data e horário; a API responde `409 Conflict`.
+- Reservas canceladas não bloqueiam um horário.
 - Transições inválidas de status recebem `400 Bad Request`.
 
 ## Arquivos principais
@@ -55,10 +55,10 @@ AGENDADA ou CONFIRMADA → CANCELADA
 
 - `ppw_server/src/main.ts`: inicia o NestJS, ativa CORS, `ValidationPipe` e porta 8000.
 - `ppw_server/src/app/app.module.ts`: reúne os módulos da aplicação.
-- `ppw_server/src/consultas/consultas.controller.ts`: recebe as requisições HTTP de consultas.
-- `ppw_server/src/consultas/consultas.service.ts`: contém as regras, os dados temporários e a sincronização.
-- `ppw_server/src/consultas/dto/`: define os dados recebidos pela API.
-- `ppw_server/src/pacientes/` e `ppw_server/src/medicos/`: fornecem catálogos fictícios.
+- `ppw_server/src/reservas/reservas.controller.ts`: recebe as requisições HTTP de reservas.
+- `ppw_server/src/reservas/reservas.service.ts`: contém as regras, os dados temporários e a sincronização.
+- `ppw_server/src/reservas/dto/`: define os dados recebidos pela API.
+- `ppw_server/src/usuarios/` e `ppw_server/src/espacos/`: fornecem catálogos fictícios.
 
 ### Frontend
 
@@ -72,12 +72,12 @@ AGENDADA ou CONFIRMADA → CANCELADA
 
 | Método | Rota | Função |
 | --- | --- | --- |
-| GET | `/consultas` | Lista consultas |
-| GET | `/consultas/:id` | Busca consulta |
-| POST | `/consultas` | Cria consulta |
-| PATCH | `/consultas/:id` | Edita consulta ou status |
-| PUT | `/consultas/sincronizar` | Sincroniza consultas com localStorage |
-| GET | `/pacientes` | Lista pacientes |
-| GET | `/pacientes/:id` | Busca paciente |
-| GET | `/medicos` | Lista médicos |
-| GET | `/medicos/:id` | Busca médico |
+| GET | `/reservas` | Lista reservas |
+| GET | `/reservas/:id` | Busca reserva |
+| POST | `/reservas` | Cria reserva |
+| PATCH | `/reservas/:id` | Edita reserva ou status |
+| PUT | `/reservas/sincronizar` | Sincroniza reservas com localStorage |
+| GET | `/usuarios` | Lista usuarios |
+| GET | `/usuarios/:id` | Busca usuario |
+| GET | `/espacos` | Lista espaços |
+| GET | `/espacos/:id` | Busca espaço |

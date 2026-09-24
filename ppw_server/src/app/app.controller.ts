@@ -4,6 +4,6 @@ import { Controller, Get } from '@nestjs/common';
 export class AppController {
   @Get()
   online() {
-    return 'Agenda Clínica API online';
+    return 'Agenda Coworking API online';
   }
 }
